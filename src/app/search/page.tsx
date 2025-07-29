@@ -2,25 +2,37 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PropertyCard } from "@/components/property-card"
+import { PropertyFilters } from "@/components/property-filters"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { type ImageInput } from '@/utils/image-helpers'
+import LoadingSpinner from "@/components/shared/loadig-spinner"
+import PropertyResults from "@/components/properties/property-results"
+import { Skeleton } from "@/components/ui/skeleton"
+import { SkeletonCard } from "@/components/properties/skeleton-card"
 
 interface Property {
-  id: string
-  type: string
-  price: number
-  beds: number
-  baths: number
-  address: string
-  // Add other property fields as needed
+  id: number
+  description: string | null
+  price: number | null
+  currency: string | null
+  property_type: string | null
+  transaction_type: string | null
+  area: number | null
+  rooms: number | null
+  baths: number | null
+  address: string | null
+  images: ImageInput[] | string[] | null
 }
 
 interface FilterState {
   price: { min: string; max: string }
-  type: string
-  beds: number
+  property_type: string
+  transaction_type: string
+  rooms: number
   baths: number
+  area: { min: string; max: string }
   address: string
 }
 
@@ -28,6 +40,15 @@ export default function SearchPage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filters, setFilters] = useState<FilterState>({
+    price: { min: '', max: '' },
+    property_type: 'all',
+    transaction_type: 'all',
+    rooms: 0,
+    baths: 0,
+    area: { min: '', max: '' },
+    address: ''
+  })
 
   const supabase = createClient()
   const searchParams = useSearchParams()
@@ -44,8 +65,11 @@ export default function SearchPage() {
         .select('*')
 
       // Apply filters
-      if (filters.type !== 'all') {
-        query = query.eq('type', filters.type)
+      if (filters.property_type !== 'all') {
+        query = query.eq('property_type', filters.property_type)
+      }
+      if (filters.transaction_type !== 'all') {
+        query = query.eq('transaction_type', filters.transaction_type)
       }
       if (filters.price.min) {
         query = query.gte('price', parseInt(filters.price.min))
@@ -53,11 +77,17 @@ export default function SearchPage() {
       if (filters.price.max) {
         query = query.lte('price', parseInt(filters.price.max))
       }
-      if (filters.beds) {
-        query = query.gte('beds', filters.beds)
+      if (filters.rooms) {
+        query = query.gte('rooms', filters.rooms)
       }
       if (filters.baths) {
         query = query.gte('baths', filters.baths)
+      }
+      if (filters.area.min) {
+        query = query.gte('area', parseInt(filters.area.min))
+      }
+      if (filters.area.max) {
+        query = query.lte('area', parseInt(filters.area.max))
       }
       if (filters.address) {
         query = query.ilike('address', `%${filters.address}%`)
@@ -77,11 +107,13 @@ export default function SearchPage() {
 
   useEffect(() => {
     const params = Object.fromEntries(searchParams.entries())
-    const filters: FilterState = {
+    const newFilters: FilterState = {
       price: { min: '', max: '' },
-      type: 'all',
-      beds: 0,
+      property_type: 'all',
+      transaction_type: 'all',
+      rooms: 0,
       baths: 0,
+      area: { min: '', max: '' },
       address: '',
     }
 
@@ -89,7 +121,7 @@ export default function SearchPage() {
     if (params.price) {
       try {
         const price = JSON.parse(params.price)
-        filters.price = {
+        newFilters.price = {
           min: price.min || '',
           max: price.max || ''
         }
@@ -98,23 +130,35 @@ export default function SearchPage() {
       }
     }
 
-    // Parse other filters
-    if (params.type) filters.type = params.type
-    if (params.beds) filters.beds = parseInt(params.beds)
-    if (params.baths) filters.baths = parseInt(params.baths)
-    if (params.address) filters.address = params.address
+    // Parse area range
+    if (params.area) {
+      try {
+        const area = JSON.parse(params.area)
+        newFilters.area = {
+          min: area.min || '',
+          max: area.max || ''
+        }
+      } catch (e) {
+        console.error('Error parsing area:', e)
+      }
+    }
 
-    fetchProperties(filters)
+    // Parse other filters
+    if (params.property_type) newFilters.property_type = params.property_type
+    if (params.transaction_type) newFilters.transaction_type = params.transaction_type
+    if (params.rooms) newFilters.rooms = parseInt(params.rooms)
+    if (params.baths) newFilters.baths = parseInt(params.baths)
+    if (params.address) newFilters.address = params.address
+
+    setFilters(newFilters)
+    fetchProperties(newFilters)
   }, [searchParams, fetchProperties])
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg">Loading properties...</div>
-        </div>
-      </div>
-    )
+  const handleFilterChange = (field: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   if (error) {
@@ -128,27 +172,24 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Search Results</h1>
+    <div className="container mx-auto px-4 py-8 ">
+      <h1 className="text-3xl font-bold mb-8">Search Properties</h1>
 
-      {properties.length === 0 ? (
-        <div className="text-center py-12">
-          <h2 className="text-xl text-gray-600 mb-4">No properties found</h2>
-          <p className="text-gray-500">Try adjusting your search filters to see more results.</p>
-        </div>
-      ) : (
-        <>
-          <p className="text-gray-600 mb-6">Found {properties.length} properties</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-              />
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Filters Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="bg-white p-6 rounded-lg shadow-md sticky top-4">
+            <PropertyFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
           </div>
-        </>
-      )}
+        </div>
+
+        {loading ? <div className="col-span-3"><SkeletonCard /></div> :
+        <PropertyResults properties={properties} />
+        }
+      </div>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import GoogleSearch from '@/components/shared/google-search'
+import MapboxLocationPicker from '@/components/shared/mapbox-location-picker'
 import { Button } from '@/components/ui/button'
 import { User } from '@supabase/supabase-js'
 
@@ -13,6 +14,7 @@ interface Property {
 
 export default function CreateProperty() {
   const [address, setAddress] = useState('')
+  const [location, setLocation] = useState<{latitude: number, longitude: number} | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -36,6 +38,7 @@ export default function CreateProperty() {
         .insert([
           {
             address,
+            location: location,
             created_by: user?.id,
           }
         ])
@@ -65,17 +68,48 @@ export default function CreateProperty() {
       )}
 
       <div className="w-full">
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search for Address
+            </label>
             <GoogleSearch
-              selectedAddress={setAddress}
+              selectedAddress={(address) => {
+                setAddress(address)
+              }}
+              selectedLocation={(lat, lng) => {
+                setLocation({ latitude: lat, longitude: lng })
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Set Exact Location on Map
+            </label>
+            <MapboxLocationPicker
+              onLocationSelect={(locationData) => {
+                setLocation({
+                  latitude: locationData.latitude,
+                  longitude: locationData.longitude
+                })
+                if (locationData.address && !address) {
+                  setAddress(locationData.address)
+                }
+              }}
+              initialLocation={location ? {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                address: address
+              } : undefined}
+              height="300px"
             />
           </div>
 
           <div className="flex justify-between items-center">
             <Button
               onClick={handleCreate}
-              disabled={loading || !address}
+              disabled={loading || !address || !location}
               className="w-full"
             >
               {loading ? 'Creating...' : 'Create Property'}

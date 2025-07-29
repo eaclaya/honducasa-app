@@ -8,18 +8,18 @@ export default function Navbar() {
   return (
     <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
+          <div className="flex ">
+            <Link href="/" className="flex items-center gap-2 justify-center">
               <Image
-                src="/images/logo.png"
+                src="/images/logo.jpg"
                 alt="HonduCasa Logo"
                 width={40}
                 height={40}
-                className="mr-2"
+
               />
-              <span className="text-xl font-bold text-gray-800">HonduCasa</span>
+              <span className="text-xl font-bold text-gray-800 mt-2">HonduCasa</span>
             </Link>
           </div>
           <div className="flex items-center space-x-4">

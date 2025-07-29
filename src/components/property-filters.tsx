@@ -13,10 +13,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 interface PropertyFiltersProps {
   filters: {
     price: { min: string; max: string }
-    type: string
-    bedrooms: number
-    bathrooms: number
-    location: string
+    property_type: string
+    transaction_type: string
+    rooms: number
+    baths: number
+    area: { min: string; max: string }
+    address: string
   }
   onFilterChange: (field: string, value: any) => void
 }
@@ -25,20 +27,25 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
   const router = useRouter()
   const currentSearchParams = useSearchParams()
 
-  const types = [
+  const propertyTypes = [
     { value: "all", label: "All Types" },
-    { value: "apartment", label: "Apartment" },
-    { value: "house", label: "House" },
-    { value: "condo", label: "Condo" },
-    { value: "townhouse", label: "Townhouse" }
+    { value: "Apartment", label: "Apartment" },
+    { value: "House", label: "House" },
+    { value: "Land", label: "Land" }
+  ]
+
+  const transactionTypes = [
+    { value: "all", label: "All Transactions" },
+    { value: "For Sale", label: "For Sale" },
+    { value: "For Rent", label: "For Rent" },
   ]
 
   const updateFiltersAndNavigate = (field: string, value: any) => {
     onFilterChange(field, value)
-    
+
     // Create new URLSearchParams from current URL
     const newSearchParams = new URLSearchParams(currentSearchParams.toString())
-    
+
     // Update the specific parameter
     if (value) {
       newSearchParams.set(field, typeof value === 'object' ? JSON.stringify(value) : value.toString())
@@ -87,14 +94,14 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
             Property Type
           </label>
           <Select
-            value={filters.type}
-            onValueChange={(value) => updateFiltersAndNavigate('type', value)}
+            value={filters.property_type}
+            onValueChange={(value) => updateFiltersAndNavigate('property_type', value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select property type" />
             </SelectTrigger>
             <SelectContent>
-              {types.map((type) => (
+              {propertyTypes.map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}
                 </SelectItem>
@@ -103,22 +110,44 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
           </Select>
         </div>
 
-        {/* Bedrooms */}
+        {/* Transaction Type */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Bedrooms
+            Transaction Type
           </label>
           <Select
-            value={filters.bedrooms.toString()}
-            onValueChange={(value) => updateFiltersAndNavigate('bedrooms', parseInt(value))}
+            value={filters.transaction_type}
+            onValueChange={(value) => updateFiltersAndNavigate('transaction_type', value)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select number of bedrooms" />
+              <SelectValue placeholder="Select transaction type" />
             </SelectTrigger>
             <SelectContent>
-              {[0, 1, 2, 3, 4, 5, 6].map((num) => (
+              {transactionTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Rooms */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Rooms
+          </label>
+          <Select
+            value={filters.rooms.toString()}
+            onValueChange={(value) => updateFiltersAndNavigate('rooms', parseInt(value))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select number of rooms" />
+            </SelectTrigger>
+            <SelectContent>
+              {[0, 1, 2, 3, 4].map((num) => (
                 <SelectItem key={num} value={num.toString()}>
-                  {num}+ Beds
+                  {num === 4 ? '4+ Rooms' : `${num}+ Rooms`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -131,8 +160,8 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
             Bathrooms
           </label>
           <Select
-            value={filters.bathrooms.toString()}
-            onValueChange={(value) => updateFiltersAndNavigate('bathrooms', parseInt(value))}
+            value={filters.baths.toString()}
+            onValueChange={(value) => updateFiltersAndNavigate('baths', parseInt(value))}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select number of bathrooms" />
@@ -147,15 +176,38 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
           </Select>
         </div>
 
-        {/* Location */}
+        {/* Area Range */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            Location
+            Area (m²)
+          </label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="Min"
+              value={filters.area.min}
+              onChange={(e) => updateFiltersAndNavigate('area', { ...filters.area, min: e.target.value })}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              placeholder="Max"
+              value={filters.area.max}
+              onChange={(e) => updateFiltersAndNavigate('area', { ...filters.area, max: e.target.value })}
+              className="flex-1"
+            />
+          </div>
+        </div>
+
+        {/* Address */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Address
           </label>
           <Input
             placeholder="Enter city, neighborhood, or address"
-            value={filters.location}
-            onChange={(e) => updateFiltersAndNavigate('location', e.target.value)}
+            value={filters.address}
+            onChange={(e) => updateFiltersAndNavigate('address', e.target.value)}
           />
         </div>
       </div>

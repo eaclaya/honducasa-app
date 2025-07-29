@@ -29,10 +29,13 @@ export function AuthNav() {
   return (
     <div className="flex items-center space-x-4">
       {session?.user ? (
-        <ul className="grid grid-cols-1 gap-3 p-4">
-            <li>
-                <Link href="/properties/create"><Button>Post Property</Button></Link>
-            </li>
+        <ul className="flex items-center gap-8 p-4">
+          <li>
+            <Link href="/properties">Properties</Link>
+          </li>
+          <li>
+            <Link href="/properties/create"><Button>Post Property</Button></Link>
+          </li>
         </ul>
       ) : (
         null

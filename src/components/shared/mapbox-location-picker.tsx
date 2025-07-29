@@ -1,14 +1,20 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Map, { Marker, NavigationControl, GeolocateControl } from 'react-map-gl/mapbox'
-import { MapPin, AlertCircle } from 'lucide-react'
+import { MapPin, AlertCircle, Search, X } from 'lucide-react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 interface LocationData {
   latitude: number
   longitude: number
   address?: string
+}
+
+interface SearchResult {
+  id: string
+  place_name: string
+  center: [number, number]
 }
 
 interface MapboxLocationPickerProps {
@@ -34,6 +40,11 @@ export default function MapboxLocationPicker({
 
   const [error, setError] = useState<string | null>(null)
   const [hasApiKey, setHasApiKey] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if Mapbox API key is configured
   useEffect(() => {
@@ -95,6 +106,87 @@ export default function MapboxLocationPicker({
     }))
   }, [])
 
+  // Search for addresses using Mapbox geocoding
+  const searchAddresses = useCallback(async (query: string) => {
+    if (!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || !query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}&limit=5`
+      )
+      const data = await response.json()
+
+      if (data.features) {
+        const results: SearchResult[] = data.features.map((feature: any) => ({
+          id: feature.id,
+          place_name: feature.place_name,
+          center: feature.center
+        }))
+        setSearchResults(results)
+        setShowResults(true)
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    }
+    setIsSearching(false)
+  }, [])
+
+  // Handle search input change with debouncing
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (value.trim()) {
+      searchTimeoutRef.current = setTimeout(() => {
+        searchAddresses(value)
+      }, 500)
+    } else {
+      setSearchResults([])
+      setShowResults(false)
+    }
+  }, [searchAddresses])
+
+  // Handle search result selection
+  const handleResultSelect = useCallback(async (result: SearchResult) => {
+    const [longitude, latitude] = result.center
+
+    setViewport({
+      latitude,
+      longitude,
+      zoom: 15
+    })
+
+    const locationData: LocationData = {
+      latitude,
+      longitude,
+      address: result.place_name
+    }
+
+    setMarkerLocation(locationData)
+    onLocationSelect(locationData)
+    setSearchQuery(result.place_name)
+    setShowResults(false)
+    setError(null)
+  }, [onLocationSelect])
+
+  // Clear search
+  const clearSearch = useCallback(() => {
+    setSearchQuery('')
+    setSearchResults([])
+    setShowResults(false)
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+  }, [])
+
   // Don't render if API key is missing
   if (!hasApiKey) {
     return (
@@ -111,6 +203,58 @@ export default function MapboxLocationPicker({
 
   return (
     <div className="relative" style={{ height }}>
+      {/* Search Input */}
+      <div className="absolute top-4 left-4 right-4 z-10">
+        <div className="relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search for an address..."
+              className="w-full pl-10 pr-10 py-2 bg-white/90 backdrop-blur-sm border border-gray-300 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showResults && searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20">
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  onClick={() => handleResultSelect(result)}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-gray-100"
+                >
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{result.place_name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Loading indicator */}
+          {isSearching && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-sm border border-gray-300 rounded-lg shadow-lg p-4">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span className="ml-2 text-sm text-gray-600">Searching...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <Map
         {...viewport}
         onMove={evt => setViewport(evt.viewState)}
@@ -118,7 +262,6 @@ export default function MapboxLocationPicker({
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
         style={{ width: '100%', height: '100%' }}
-        className="rounded-lg"
       >
         {/* Navigation Controls */}
         <NavigationControl position="top-right" />
@@ -153,7 +296,7 @@ export default function MapboxLocationPicker({
 
       {/* Location Info */}
       {markerLocation && (
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg max-w-xs">
+        <div className="absolute bottom-16 left-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg max-w-xs">
           <div className="flex items-start gap-2">
             <MapPin className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
             <div>

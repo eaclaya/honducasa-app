@@ -10,7 +10,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { Bath, Bed } from "lucide-react"
+import { Bath, Bed, MapPin } from "lucide-react"
 
 export interface Property {
   id: number
@@ -19,7 +19,8 @@ export interface Property {
   price: number
   rooms: number
   baths: number
-  location: string
+  location: string | {latitude: number, longitude: number} | null
+  address?: string | null
   images: ImageInput[]
 }
 
@@ -45,6 +46,26 @@ function normalizeImages(images: (ImageInput | string)[] | ImageInput | string):
 
   // If it's a single image, wrap in an array
   return [images]
+}
+
+function getLocationDisplay(property: Property): string {
+  // First try to use the address field if available
+  if (property.address) {
+    return property.address
+  }
+  
+  // If location is a string, use it
+  if (typeof property.location === 'string') {
+    return property.location
+  }
+  
+  // If location is coordinates, show coordinates as fallback
+  if (property.location && typeof property.location === 'object' && 'latitude' in property.location) {
+    return `${property.location.latitude.toFixed(6)}, ${property.location.longitude.toFixed(6)}`
+  }
+  
+  // Fallback if no location data
+  return 'Location not specified'
 }
 
 export function PropertyCard({ property, url, view }: { property: Property, url: string, view?: 'card' | 'list' }) {
@@ -110,7 +131,10 @@ export function PropertyCard({ property, url, view }: { property: Property, url:
           )}
           </div>
         </div>
-        <p className="text-gray-600 mb-4 line-clamp-2">{property.location}</p>
+        <div className="flex items-start gap-2 text-gray-600 mb-4">
+          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <p className="line-clamp-2 text-sm">{getLocationDisplay(property)}</p>
+        </div>
         </Link>
       </div>
     </div>

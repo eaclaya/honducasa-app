@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import GoogleSearch from "@/components/shared/google-search"
+import MapboxSearch from "@/components/shared/mapbox-search"
 import { PropertyCard, type Property } from "@/components/property-card"
 import { createClient } from '@/utils/supabase/client'
 import { type ImageInput } from '@/utils/image-helpers'
@@ -128,10 +128,11 @@ export default function Home() {
               {/* Search Input and Button */}
               <div className="flex w-full items-center gap-2">
                 <div className="relative flex-1">
-                  <GoogleSearch
+                  <MapboxSearch
                     selectedCity={(city : string) => {
                       setAddress(city)
                     }}
+                    placeholder="Enter city, neighborhood, or address..."
                   />
                 </div>
                 <Button

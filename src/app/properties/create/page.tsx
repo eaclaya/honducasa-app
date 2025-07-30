@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import GoogleSearch from '@/components/shared/google-search'
+import MapboxSearch from '@/components/shared/mapbox-search'
 import MapboxLocationPicker from '@/components/shared/mapbox-location-picker'
 import { Button } from '@/components/ui/button'
 import { User } from '@supabase/supabase-js'
@@ -69,7 +69,7 @@ export default function CreateProperty() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Search for Address
             </label>
-            <GoogleSearch
+            <MapboxSearch
               selectedAddress={(address) => {
                 setAddress(address)
               }}

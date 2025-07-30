@@ -37,7 +37,7 @@ export default function SignupPage() {
       } else {
         router.push("/")
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred during signup")
     }
   }

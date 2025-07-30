@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -39,8 +39,7 @@ const propertySchema = z.object({
   baths: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, 'Baths must be 0 or greater'),
 })
 
-interface DefaultValues extends z.infer<typeof propertySchema> {
-}
+type DefaultValues = z.infer<typeof propertySchema>
 
 interface Property {
   id: string
@@ -143,12 +142,12 @@ export default function EditPropertyPage({ params }: PageProps) {
           if (key in propertySchema.shape) {
             // Convert numbers to strings for form fields
             const stringValue = value !== null && value !== undefined ? String(value) : ''
-            setValue(key as keyof typeof propertySchema.shape, stringValue as any)
+            setValue(key as keyof DefaultValues, stringValue)
           }
         })
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error fetching property:', error)
-        toast.error(error.message || 'Failed to load property')
+        toast.error(error instanceof Error ? error.message : 'Failed to load property')
       } finally {
         setLoading(false)
       }
@@ -157,7 +156,7 @@ export default function EditPropertyPage({ params }: PageProps) {
     fetchProperty()
   }, [resolvedParams, setValue])
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: DefaultValues) => {
     try {
       setLoading(true)
 
@@ -180,7 +179,7 @@ export default function EditPropertyPage({ params }: PageProps) {
       let newImagesData: ImageData[] = []
       if (hasNewImages) {
         setIsUploading(true)
-        
+
         const uploadResult = await uploadImagesWithFallback(
           images,
           resolvedParams.id,
@@ -517,7 +516,7 @@ export default function EditPropertyPage({ params }: PageProps) {
                 ) : (
                   <p className="text-sm text-gray-600 mt-2">At least one image is required</p>
                 )}
-                
+
                 {/* Upload Progress */}
                 {isUploading && uploadProgress.length > 0 && (
                   <div className="mt-4 space-y-3">
@@ -574,10 +573,10 @@ export default function EditPropertyPage({ params }: PageProps) {
 
                         const { data } = supabase.storage.from('images').getPublicUrl(imagePath)
                         const isMainImage = index === 0
-                        
+
                         return (
-                          <div 
-                            key={index} 
+                          <div
+                            key={index}
                             className={`relative group bg-white rounded-lg shadow-md overflow-hidden ${
                               isMainImage ? 'ring-2 ring-blue-500' : ''
                             }`}
@@ -602,7 +601,7 @@ export default function EditPropertyPage({ params }: PageProps) {
                                 Main Image
                               </div>
                             )}
-                            
+
                             {/* Control buttons */}
                             <div className="absolute top-2 right-2 z-20 flex gap-1">
                               {!isMainImage && (
@@ -638,7 +637,7 @@ export default function EditPropertyPage({ params }: PageProps) {
                               alt={`Property ${index + 1}${isMainImage ? ' (Main)' : ''}`}
                               className="w-full h-48 object-cover"
                             />
-                            
+
                             {/* Image info */}
                             <div className="p-3">
                               <p className="text-sm text-gray-600">

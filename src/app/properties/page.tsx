@@ -1,14 +1,16 @@
 "use client"
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/utils/supabase/client'
 import { PropertyCard } from '@/components/property-card'
 import { Button } from '@/components/ui/button'
 import { type ImageInput } from '@/utils/image-helpers'
 import Link from 'next/link'
 import { SkeletonCard } from '@/components/properties/skeleton-card'
+import { User } from '@supabase/supabase-js'
 
 interface Property {
   id: number
+  title: string
   description: string | null
   price: number | null
   currency: string | null
@@ -18,23 +20,33 @@ interface Property {
   rooms: number | null
   baths: number | null
   address: string | null
-  location: unknown
+  location: string | {latitude: number, longitude: number} | null
   images: ImageInput[] | string[] | null
 }
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+
+  const supabase = createClient()
 
   useEffect(() => {
-    fetchProperties()
-  }, [])
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null)
+    })
+  }, [supabase])
+
+  useEffect(() => {
+    if (user) fetchProperties()
+  }, [user])
 
   async function fetchProperties() {
     try {
       const { data, error } = await supabase
         .from('properties')
         .select('*')
+        .eq('created_by', user?.id)
 
       if (error) throw error
       setProperties(data || [])

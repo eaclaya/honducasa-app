@@ -24,7 +24,7 @@ export default function GoogleSearch({ selectedAddress, selectedLocation, select
     }, [])
 
     // Helper function to extract city from Google Places address components
-    const extractCityFromComponents = (addressComponents: any[]) => {
+    const extractCityFromComponents = (addressComponents: { long_name: string; types: string[] }[]) => {
         if (!addressComponents || !Array.isArray(addressComponents)) {
             return null
         }

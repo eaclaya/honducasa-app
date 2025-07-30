@@ -6,8 +6,6 @@ import {
   SelectItem
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 interface PropertyFiltersProps {
@@ -20,7 +18,7 @@ interface PropertyFiltersProps {
     area: { min: string; max: string }
     address: string
   }
-  onFilterChange: (field: string, value: any) => void
+  onFilterChange: (field: string, value: string | number | { min: string; max: string }) => void
 }
 
 export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProps) {
@@ -40,22 +38,25 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
     { value: "For Rent", label: "For Rent" },
   ]
 
-  const updateFiltersAndNavigate = (field: string, value: any) => {
-    onFilterChange(field, value)
-
+  const updateFiltersAndNavigate = (field: string, value: string | number | { min: string; max: string }) => {
     // Create new URLSearchParams from current URL
     const newSearchParams = new URLSearchParams(currentSearchParams.toString())
 
     // Update the specific parameter
-    if (value) {
+    if (value && value !== '' && value !== 'all' && value !== 0) {
       newSearchParams.set(field, typeof value === 'object' ? JSON.stringify(value) : value.toString())
     } else {
       newSearchParams.delete(field)
     }
 
-    // Update URL
+    // Update URL - this will trigger the search page useEffect
     const newUrl = `/search?${newSearchParams.toString()}`
     router.push(newUrl)
+  }
+
+  const updateLocalState = (field: string, value: string | number | { min: string; max: string }) => {
+    // Only update local state for immediate UI feedback
+    onFilterChange(field, value)
   }
 
   return (
@@ -75,14 +76,16 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
               type="number"
               placeholder="Min"
               value={filters.price.min}
-              onChange={(e) => updateFiltersAndNavigate('price', { ...filters.price, min: e.target.value })}
+              onChange={(e) => updateLocalState('price', { ...filters.price, min: e.target.value })}
+              onBlur={(e) => updateFiltersAndNavigate('price', { ...filters.price, min: e.target.value })}
               className="flex-1"
             />
             <Input
               type="number"
               placeholder="Max"
               value={filters.price.max}
-              onChange={(e) => updateFiltersAndNavigate('price', { ...filters.price, max: e.target.value })}
+              onChange={(e) => updateLocalState('price', { ...filters.price, max: e.target.value })}
+              onBlur={(e) => updateFiltersAndNavigate('price', { ...filters.price, max: e.target.value })}
               className="flex-1"
             />
           </div>
@@ -145,9 +148,9 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
               <SelectValue placeholder="Select number of rooms" />
             </SelectTrigger>
             <SelectContent>
-              {[0, 1, 2, 3, 4].map((num) => (
+              {[1, 2, 3, 4].map((num) => (
                 <SelectItem key={num} value={num.toString()}>
-                  {num === 4 ? '4+ Rooms' : `${num}+ Rooms`}
+                  {`${num}+`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -167,9 +170,9 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
               <SelectValue placeholder="Select number of bathrooms" />
             </SelectTrigger>
             <SelectContent>
-              {[0, 1, 2, 3, 4, 5].map((num) => (
+              {[1, 2, 3, 4].map((num) => (
                 <SelectItem key={num} value={num.toString()}>
-                  {num}+ Baths
+                  {num}+
                 </SelectItem>
               ))}
             </SelectContent>
@@ -186,14 +189,16 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
               type="number"
               placeholder="Min"
               value={filters.area.min}
-              onChange={(e) => updateFiltersAndNavigate('area', { ...filters.area, min: e.target.value })}
+              onChange={(e) => updateLocalState('area', { ...filters.area, min: e.target.value })}
+              onBlur={(e) => updateFiltersAndNavigate('area', { ...filters.area, min: e.target.value })}
               className="flex-1"
             />
             <Input
               type="number"
               placeholder="Max"
               value={filters.area.max}
-              onChange={(e) => updateFiltersAndNavigate('area', { ...filters.area, max: e.target.value })}
+              onChange={(e) => updateLocalState('area', { ...filters.area, max: e.target.value })}
+              onBlur={(e) => updateFiltersAndNavigate('area', { ...filters.area, max: e.target.value })}
               className="flex-1"
             />
           </div>
@@ -207,7 +212,8 @@ export function PropertyFilters({ filters, onFilterChange }: PropertyFiltersProp
           <Input
             placeholder="Enter city, neighborhood, or address"
             value={filters.address}
-            onChange={(e) => updateFiltersAndNavigate('address', e.target.value)}
+            onChange={(e) => updateLocalState('address', e.target.value)}
+            onBlur={(e) => updateFiltersAndNavigate('address', e.target.value)}
           />
         </div>
       </div>

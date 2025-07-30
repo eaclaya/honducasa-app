@@ -1,5 +1,4 @@
 "use client"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { getMainImageUrl, type ImageInput } from "@/utils/image-helpers"
@@ -10,18 +9,23 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { Bath, Bed, MapPin } from "lucide-react"
+import { Bath, Bed, Heart, MapPin } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/utils/supabase/client"
+import { useEffect, useState } from "react"
+import { User } from "@supabase/supabase-js"
 
 export interface Property {
   id: number
   title: string
-  description: string
-  price: number
-  rooms: number
-  baths: number
+  description: string | null
+  price: number | null
+  rooms: number | null
+  baths: number | null
   location: string | {latitude: number, longitude: number} | null
   address?: string | null
-  images: ImageInput[]
+  images: ImageInput[] | string[] | null
+  favorites?: { property_id: number, user_id: string }[]
 }
 
 function getImageUrl(imageData: ImageInput | string): string {
@@ -36,7 +40,7 @@ function getImageUrl(imageData: ImageInput | string): string {
   return getMainImageUrl(imageData as ImageInput)
 }
 
-function normalizeImages(images: (ImageInput | string)[] | ImageInput | string): (ImageInput | string)[] {
+function normalizeImages(images: (ImageInput | string)[] | ImageInput | string | null): (ImageInput | string)[] {
   if (!images) return ['/images/placeholder-property.jpg']
 
   // If it's already an array, return as is
@@ -53,17 +57,17 @@ function getLocationDisplay(property: Property): string {
   if (property.address) {
     return property.address
   }
-  
+
   // If location is a string, use it
   if (typeof property.location === 'string') {
     return property.location
   }
-  
+
   // If location is coordinates, show coordinates as fallback
   if (property.location && typeof property.location === 'object' && 'latitude' in property.location) {
     return `${property.location.latitude.toFixed(6)}, ${property.location.longitude.toFixed(6)}`
   }
-  
+
   // Fallback if no location data
   return 'Location not specified'
 }
@@ -71,11 +75,77 @@ function getLocationDisplay(property: Property): string {
 export function PropertyCard({ property, url, view }: { property: Property, url: string, view?: 'card' | 'list' }) {
   const imagesList = normalizeImages(property.images)
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const supabase = createClient()
+  const [user, setUser] = useState<User | null>(null)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [isLoadingFavorite, setIsLoadingFavorite] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null)
+    })
+  }, [supabase])
+
+  // Check if this property is favorited by the current user
+  useEffect(() => {
+    if (user && property.favorites) {
+      const userFavorite = property.favorites.find(fav => fav.user_id === user.id)
+      setIsFavorite(!!userFavorite)
+    } else {
+      setIsFavorite(false)
+    }
+  }, [user, property.favorites])
 
   const handlePropertyClick = () => {
     // Store current search params in localStorage before navigating
     if (searchParams.toString()) {
       localStorage.setItem('searchParams', searchParams.toString())
+    }
+  }
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault() // Prevent navigation when clicking heart
+    e.stopPropagation()
+
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    if (!property.id) return
+
+    setIsLoadingFavorite(true)
+
+    try {
+      if (isFavorite) {
+      // Remove from favorites
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('property_id', property.id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+        setIsFavorite(false)
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('favorites')
+          .insert({
+            property_id: property.id,
+            user_id: user.id,
+          })
+
+        if (error) throw error
+        setIsFavorite(true)
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      // Revert optimistic update on error
+      setIsFavorite(!isFavorite)
+  } finally {
+      setIsLoadingFavorite(false)
     }
   }
 
@@ -87,11 +157,13 @@ export function PropertyCard({ property, url, view }: { property: Property, url:
             {imagesList.map((image, index) => (
               <CarouselItem key={index}>
                 <div className="relative h-64">
+                <Link href={url} onClick={handlePropertyClick}>
                   <img
                     src={getImageUrl(image)}
                     alt={`${property.description} - Image ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
+                </Link>
                 </div>
               </CarouselItem>
             ))}
@@ -109,33 +181,50 @@ export function PropertyCard({ property, url, view }: { property: Property, url:
           )}
         </Carousel>
       </div>
-      <div className="p-4 flex-1">
+      <div className="flex-1 px-2 py-2">
         <Link href={url} onClick={handlePropertyClick}>
           <h3 className="text-lg mb-2 line-clamp-2 hover:text-blue-600 transition-colors">
             {property.title}
           </h3>
 
-        <div className="flex flex-col gap-4 mb-2">
-          <span className="text-gray-600 font-bold text-xl">${property.price.toLocaleString()}</span>
-          <p className="line-clamp-2">{property.description}</p>
+        <div className="flex flex-col gap-4">
+          <span className="text-gray-600 font-bold text-xl">${property.price?.toLocaleString() || 'Price not available'}</span>
+          <p className="line-clamp-2">{property.description || 'No description available'}</p>
           <div className="flex items-center gap-2">
-          {property.rooms > 0 && (
+          {property.rooms && property.rooms > 0 && (
             <div className="flex flex-col gap-1">
               <Bed className="w-4 h-4" /><span className="text-gray-600"> {property.rooms} rooms</span>
             </div>
           )}
-          {property.baths > 0 && (
+          {property.baths && property.baths > 0 && (
             <div className="flex flex-col gap-1">
               <Bath className="w-4 h-4" /><span className="text-gray-600"> {property.baths} baths</span>
             </div>
           )}
           </div>
         </div>
-        <div className="flex items-start gap-2 text-gray-600 mb-4">
-          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <p className="line-clamp-2 text-sm">{getLocationDisplay(property)}</p>
-        </div>
         </Link>
+        <div className="flex items-center justify-between gap-2 text-gray-600 mt-2">
+          <div className="flex-1 flex items-center gap-1">
+            <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p className="line-clamp-2 text-sm">{getLocationDisplay(property)}</p>
+          </div>
+          <button
+            type="button"
+            className={`p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer`}
+            onClick={toggleFavorite}
+            disabled={isLoadingFavorite}
+          >
+            <Heart
+              className={`w-5 h-5 transition-colors ${
+                isFavorite
+                 ? 'text-red-500 fill-red-500'
+                  : 'text-gray-400'
+              }`}
+            />
+          </button>
+        </div>
+
       </div>
     </div>
   )

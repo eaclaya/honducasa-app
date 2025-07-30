@@ -1,19 +1,17 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { PropertyCard } from "@/components/property-card"
 import { PropertyFilters } from "@/components/property-filters"
 import { useSearchParams } from "next/navigation"
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { type ImageInput } from '@/utils/image-helpers'
-import LoadingSpinner from "@/components/shared/loadig-spinner"
 import PropertyResults from "@/components/properties/property-results"
-import { Skeleton } from "@/components/ui/skeleton"
 import { SkeletonCard } from "@/components/properties/skeleton-card"
+import { useAuthStore } from '@/stores/auth-store'
 
 interface Property {
   id: number
+  title: string
   description: string | null
   price: number | null
   currency: string | null
@@ -23,7 +21,9 @@ interface Property {
   rooms: number | null
   baths: number | null
   address: string | null
+  location: string | {latitude: number, longitude: number} | null
   images: ImageInput[] | string[] | null
+  favorites?: { property_id: number, user_id: string }[]
 }
 
 interface FilterState {
@@ -52,17 +52,30 @@ export default function SearchPage() {
 
   const supabase = createClient()
   const searchParams = useSearchParams()
-  const router = useRouter()
+  const { initialized } = useAuthStore()
 
   // Memoize the fetch function to prevent unnecessary re-renders
   const fetchProperties = useCallback(async (filters: FilterState) => {
+    // Check if auth is initialized
+    const { initialized: isInitialized } = useAuthStore.getState()
+    if (!isInitialized) return
+    
     try {
       setLoading(true)
       setError(null)
-
+      
+      // Get current user state from store
+      const currentUser = useAuthStore.getState().user
+      
       let query = supabase
         .from('properties')
         .select('*')
+
+      // Only include favorites if user is authenticated
+      if (currentUser) {
+        query = query.select('*, favorites(*)')
+        query = query.eq('favorites.user_id', currentUser.id)
+      }
 
       // Apply filters
       if (filters.property_type !== 'all') {
@@ -97,8 +110,8 @@ export default function SearchPage() {
 
       if (error) throw error
       setProperties(data || [])
-    } catch (err) {
-      console.error('Error fetching properties:', err)
+    } catch (error) {
+      console.error('Error fetching properties:', error)
       setError('Failed to fetch properties. Please try again.')
     } finally {
       setLoading(false)
@@ -106,13 +119,15 @@ export default function SearchPage() {
   }, [supabase])
 
   useEffect(() => {
+    if (!initialized) return
+
     const params = Object.fromEntries(searchParams.entries())
     const newFilters: FilterState = {
       price: { min: '', max: '' },
       property_type: 'all',
       transaction_type: 'all',
-      rooms: 0,
-      baths: 0,
+      rooms: 1,
+      baths: 1,
       area: { min: '', max: '' },
       address: '',
     }
@@ -152,9 +167,11 @@ export default function SearchPage() {
 
     setFilters(newFilters)
     fetchProperties(newFilters)
-  }, [searchParams, fetchProperties])
+  }, [searchParams, initialized, fetchProperties])
 
-  const handleFilterChange = (field: string, value: any) => {
+  const handleFilterChange = (field: string, value: string | number | { min: string; max: string }) => {
+    // Only update local state for UI responsiveness
+    // The actual API call will be triggered by URL change
     setFilters(prev => ({
       ...prev,
       [field]: value
@@ -173,7 +190,7 @@ export default function SearchPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 ">
-      <h1 className="text-3xl font-bold mb-8">Search Properties</h1>
+      <h1 className="text-2xl font-bold mb-4">Properties in {filters.address}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Filters Sidebar */}

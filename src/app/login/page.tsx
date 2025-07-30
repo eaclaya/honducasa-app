@@ -6,14 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const router = useRouter()
 
   const supabase = createClient()
 
@@ -110,7 +108,7 @@ export default function LoginPage() {
 
             <div className="text-center mt-4">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
                   Sign up
                 </Link>

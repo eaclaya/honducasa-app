@@ -7,7 +7,7 @@ import { AuthNav } from "@/components/auth/auth-nav"
 export default function Navbar() {
   return (
     <nav className="bg-white shadow-md">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto p-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
           <div className="flex ">

@@ -1,12 +1,13 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { getOriginalImageUrl, type ImageInput } from '@/utils/image-helpers'
 import { ImageGalleryModal } from '@/components/image-gallery-modal'
-import Link from 'next/link'
-import { Map, MapPin, Pin } from 'lucide-react'
+import { Heart, MapPin, MessageCircleIcon } from 'lucide-react'
+import MapboxLocationPicker from '@/components/shared/mapbox-location-picker'
+import { createClient } from '@/utils/supabase/client'
+import { useAuthStore } from '@/stores/auth-store'
 
 interface Property {
   id: number
@@ -25,36 +26,96 @@ interface Property {
   images: ImageInput[] | string[] | null
 }
 
+interface Location {
+  latitude: number
+  longitude: number
+}
+
 export default function PropertyDetailPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [property, setProperty] = useState<Property | null>(null)
+  const [property, setProperty] = useState<Property>({} as Property)
   const [loading, setLoading] = useState(true)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [location, setLocation] = useState<{latitude: number, longitude: number} | null>(null)
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  const { user, initialized } = useAuthStore()
+  const supabase = createClient()
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && initialized) {
       fetchProperty()
     }
-  }, [params.id])
+  }, [params.id, initialized])
 
   async function fetchProperty() {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('properties')
         .select('*')
         .eq('id', params.id)
-        .single()
+
+      // Only include favorites if user is authenticated
+      if (user) {
+        query = query.select('*, favorites(*)')
+        query = query.eq('favorites.user_id', user.id)
+      }
+
+      const { data, error } = await query.single()
 
       if (error) throw error
       setProperty(data)
+      if (data.location) {
+        setLocation(data.location as Location)
+      }
+      // Only set favorite status if user is authenticated and favorites data exists
+      setIsFavorite(user && data.favorites ? !!data.favorites.length : false)
     } catch (error) {
       console.error('Error fetching property:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  const toggleFavorite = async () => {
+    if (!user) {
+      // Redirect to login or show login modal
+      router.push('/login')
+      return
+    }
+
+    if (!property.id) return
+
+    setIsFavorite(!isFavorite)
+
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('property_id', property.id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('favorites')
+          .insert({
+            property_id: property.id,
+            user_id: user.id,
+          })
+
+        if (error) throw error
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+    }
+  }
+
 
   const handleBackToSearch = () => {
     // Get stored search params from localStorage or current URL params
@@ -188,19 +249,28 @@ export default function PropertyDetailPage() {
             )}
           </div>
 
-
-          <p>{property.description}</p>
+          <p className='mb-8'>{property.description}</p>
+          {location && (
+            <MapboxLocationPicker initialLocation={location} height="400px" />
+          )}
         </div>
 
         <div className="lg:col-span-1">
           <div className="bg-gray-50 p-6 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">Actions</h3>
             <div className="space-y-3">
-              <Link href={`/properties/${property.id}/edit`} className="block">
-                <Button className="w-full">Edit Property</Button>
-              </Link>
+            <Button
+              variant="outline"
+              className={`w-full ${isFavorite ? 'border-red-500 text-red-600 hover:bg-red-50' : ''}`}
+              onClick={toggleFavorite}
+            >
+              <Heart
+                className={`w-4 h-4 mr-2 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`}
+              />
+              Favorite
+            </Button>
               <Button variant="outline" className="w-full">
-                Contact Owner
+                <MessageCircleIcon className="w-4 h-4 mr-2" />Contact
               </Button>
             </div>
           </div>

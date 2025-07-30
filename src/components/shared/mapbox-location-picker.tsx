@@ -18,7 +18,7 @@ interface SearchResult {
 }
 
 interface MapboxLocationPickerProps {
-  onLocationSelect: (location: LocationData) => void
+  onLocationSelect?: (location: LocationData) => void
   initialLocation?: LocationData
   height?: string
 }
@@ -54,6 +54,22 @@ export default function MapboxLocationPicker({
     }
   }, [])
 
+  // Update marker and viewport when initialLocation prop changes
+  useEffect(() => {
+    if (initialLocation) {
+      setMarkerLocation(initialLocation)
+      setViewport({
+        latitude: initialLocation.latitude,
+        longitude: initialLocation.longitude,
+        zoom: 15
+      })
+      // Also update search query if address is provided
+      if (initialLocation.address) {
+        setSearchQuery(initialLocation.address)
+      }
+    }
+  }, [initialLocation])
+
   // Reverse geocoding to get address from coordinates
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     if (!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) return null
@@ -74,7 +90,7 @@ export default function MapboxLocationPicker({
   }, [])
 
   // Handle map click to place marker
-  const handleMapClick = useCallback(async (event: any) => {
+  const handleMapClick = useCallback(async (event: { lngLat: { lat: number; lng: number } }) => {
     const { lngLat } = event
     const latitude = lngLat.lat
     const longitude = lngLat.lng
@@ -121,7 +137,7 @@ export default function MapboxLocationPicker({
       const data = await response.json()
 
       if (data.features) {
-        const results: SearchResult[] = data.features.map((feature: any) => ({
+        const results: SearchResult[] = data.features.map((feature: { id: string; place_name: string; center: [number, number] }) => ({
           id: feature.id,
           place_name: feature.place_name,
           center: feature.center
@@ -285,6 +301,7 @@ export default function MapboxLocationPicker({
             </div>
           </Marker>
         )}
+
       </Map>
 
       {/* Instructions */}

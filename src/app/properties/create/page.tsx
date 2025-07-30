@@ -7,10 +7,6 @@ import MapboxLocationPicker from '@/components/shared/mapbox-location-picker'
 import { Button } from '@/components/ui/button'
 import { User } from '@supabase/supabase-js'
 
-interface Property {
-  id: string
-  address: string
-}
 
 export default function CreateProperty() {
   const [address, setAddress] = useState('')

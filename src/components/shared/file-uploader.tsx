@@ -5,11 +5,9 @@ import FilePondPluginImagePreview from 'filepond-plugin-image-preview'
 import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css'
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 // Register the plugins
-type FilePondFile = any
 registerPlugin(FilePondPluginImagePreview, FilePondPluginFileValidateType)
 
 interface FileUploaderProps {
@@ -18,21 +16,22 @@ interface FileUploaderProps {
 }
 
 export default function FileUploader({ onSelectedFiles, mimeType }: FileUploaderProps) {
-  const [files, setFiles] = useState<FilePondFile[]>([])
+  const [files, setFiles] = useState<unknown[]>([])
 
-  const handleUpdateFiles = (files: FilePondFile[]) => {
+  const handleUpdateFiles = (files: unknown[]) => {
     setFiles(files)
-    const newFiles = files.map(file => file.file)
+    const newFiles = files.map(file => (file as { file: File }).file)
     onSelectedFiles?.(newFiles)
   }
 
-  const handleRemoveFile = (error: any, file: FilePondFile) => {
+  const handleRemoveFile = (error: unknown, file: unknown) => {
     if (error) {
       toast.error('Failed to remove image')
     }
-    const newFiles = files.filter(item => item !== file.file)
+    const newFiles = files.filter(item => item !== file)
     setFiles(newFiles)
-    onSelectedFiles?.(newFiles)
+    const newFilesArray = newFiles.map(item => (item as { file: File }).file)
+    onSelectedFiles?.(newFilesArray)
   }
 
   return (

@@ -7,17 +7,19 @@ interface PropertyResultProps {
     properties: {
         id: number
         title: string
-        description: string
-        price: number
-        currency: string
-        property_type: string
-        transaction_type: string
-        area: number
-        full_area: number
-        rooms: number
-        baths: number
-        address: string
-        images: ImageInput[]
+        description: string | null
+        price: number | null
+        currency: string | null
+        property_type: string | null
+        transaction_type: string | null
+        area: number | null
+        full_area?: number | null
+        rooms: number | null
+        baths: number | null
+        address: string | null
+        location: string | {latitude: number, longitude: number} | null
+        images: ImageInput[] | string[] | null
+        favorites?: { property_id: number, user_id: string }[]
     }[]
 }
 
@@ -43,7 +45,7 @@ export default function PropertyResult({ properties }: PropertyResultProps) {
                   }`}><LayoutGrid /></button>
                 </div>
               </div>
-              <div className={view === 'list' ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
+              <div className={view === 'list' ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"}>
                 {properties.map((property) => (
                   <PropertyCard
                     key={property.id}
